@@ -45,10 +45,9 @@ The second argument is the name of the flag.
 
 The third argument is a description for the argument used for the default usage function.
 
-If the flag uses a callback it should return whether the argument was valid or not.
-If the callback returns `false` a invalid argument error message is printed and the program quits.
+If the flag uses a callback it should return whether the argument was valid or not. ([Argument errors](#argument-errors))
 
-To print additional information about this error `flag::set_description ("...")` is used to print the given string after the argument error message.
+To print additional information about the error `flag::set_description ("...")` is used to print the given string after the argument error message.
 
 ### Help flag
 
@@ -153,6 +152,8 @@ For flags using a non-boolean value reference the type is printed for the value.
 For callbacks or types for which the type name is specified as `nullptr` the flag name in uppercase is used.
 
 ### Argument errors
+
+General format:
 
 ```
 program: <error message>
