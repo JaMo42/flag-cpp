@@ -6,4 +6,4 @@ C++ command line argument parsing library loosely inspired by Go's [flag package
 
 ToDo :^)
 
-For now `main.cc` is the only documentation.
+For now `example.cc` is the only documentation.
