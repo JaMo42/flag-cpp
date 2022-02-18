@@ -7,6 +7,9 @@
 #include <iterator>
 #include <cstdlib>
 #include <cctype>
+#if defined (_WIN32) && defined (FLAG_SHORTEN_WINDOWS_PROGRAM_PATH)
+#  include <filesystem>
+#endif
 
 namespace flag
 {
@@ -347,6 +350,16 @@ parse (int argc, const char *const *argv, Collect_Arg collect_arg)
 
   const bool has_usage = bool (usage);
 
+#if defined (_WIN32) && defined (FLAG_SHORTEN_WINDOWS_PROGRAM_PATH)
+  // Powershell always gives the full path of the executable so
+  // we use this option to allow for it to be shortened to just the
+  // name of the executable (still including the .exe)
+  const auto program = std::filesystem::path (argv[0]).filename ().string ();
+  const char *const argv0 = program.c_str ();
+#else
+  const char *const argv0 = argv[0];
+#endif
+
   int i;
   for (i = 1; i < argc; ++i)
     {
@@ -360,7 +373,7 @@ parse (int argc, const char *const *argv, Collect_Arg collect_arg)
             }
           if (has_usage && arg == "help")
             {
-              usage (argv[0]);
+              usage (argv0);
               std::exit (0);
             }
           const std::size_t eq_pos = arg.find ('=');
@@ -373,10 +386,10 @@ parse (int argc, const char *const *argv, Collect_Arg collect_arg)
           const auto result = process_flag (flag, value, i, argc, argv);
           if (result != Process_Result::Ok)
             {
-              complain (argv[0], result, flag, value, (argv[i][1] == '-'));
+              complain (argv0, result, flag, value, (argv[i][1] == '-'));
               if (has_usage)
-                std::cerr << "Try '" << argv[0]
-                          << " --help' for more information.\n";
+                std::cerr << "Try '" << argv0
+                          << " -help' for more information.\n";
               std::exit (1);
             }
         }

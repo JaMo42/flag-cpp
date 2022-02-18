@@ -115,7 +115,7 @@ main (const int argc, const char **argv)
 #if 0
   // No help function
 #else
-#if
+#if 1
   // Default help function
   flag::add_help ();
 #else
