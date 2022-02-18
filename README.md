@@ -84,9 +84,9 @@ These only differ in how they handle non-flag arguments:
 
 - 3) Each argument is added to a vector using `emplace_back` and it is returned
 
-Since 2 and 3 use `emplace_back` the vector can have any value type that be constructed from a `const char *`.
+Since (2) and (3) use `emplace_back` the vector can have any value type that be constructed from a `const char *`.
 
-If 3 uses a type other than `const char *` it has to be given explicitly: `flag::parse<T> (argc, argv)`.
+If (3) uses a type other than `const char *` it has to be given explicitly: `flag::parse<T> (argc, argv)`.
 
 ### Types
 
