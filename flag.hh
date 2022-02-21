@@ -7,6 +7,7 @@
 #include <iterator>
 #include <cstdlib>
 #include <cctype>
+#include <iostream>
 #if defined (_WIN32) && defined (FLAG_SHORTEN_WINDOWS_PROGRAM_PATH)
 #  include <filesystem>
 #endif
