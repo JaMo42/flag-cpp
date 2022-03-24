@@ -196,6 +196,7 @@ struct Option_Type<Option_Callable> : Option_Base
 inline std::vector<std::unique_ptr<Option_Base>> options = {};
 inline Help_Function usage = nullptr;
 inline std::string_view error_description = "";
+inline bool help_show_types = true;
 
 static inline void
 print_type_name (Option_Base *option)
@@ -229,6 +230,7 @@ default_usage (const char *program)
     {
       std::cout << "    -" << option->flag ();
       if (option->takes_value ())
+      if (help_show_types && option->takes_value ())
         {
           std::cout << ' ';
           print_type_name (option.get ());
@@ -250,7 +252,7 @@ enum class Process_Result
 
 static Process_Result
 process_flag (std::string_view flag, std::string_view &value,
-                int &argind, int argc, const char *const *argv)
+              int &argind, int argc, const char *const *argv)
 {
   const auto it = std::find_if (options.begin (), options.end (),
                                 [&flag] (const auto &test) {
@@ -341,6 +343,12 @@ static inline void
 add_help ()
 {
   add_help (detail::default_usage);
+}
+
+static inline void
+help_show_types (bool v)
+{
+  detail::help_show_types = v;
 }
 
 static inline void

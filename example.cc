@@ -13,7 +13,7 @@ struct my_custom_type
 
 namespace flag { namespace types {
 
-// Using predicate instead of soecific type:
+// Using predicate instead of specific type:
 //   template <class T>
 //   struct Value_Type<T, std::enable_if_t<...>>
 //   { ... };
@@ -66,7 +66,7 @@ main (const int argc, const char **argv)
   std::string str = "baz";
   bool long_flag = false;
   double scale = 1.0;
-  my_custom_type x;
+  my_custom_type x = {"<none>", "<none>"};
   bool boolean;
 
   // Boolean
@@ -118,6 +118,9 @@ main (const int argc, const char **argv)
 #if 1
   // Default help function
   flag::add_help ();
+#if 1
+  flag::help_show_types (false);
+#endif
 #else
   // Custom help function
   flag::add_help (usage);
