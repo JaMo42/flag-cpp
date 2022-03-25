@@ -127,6 +127,17 @@ main (const int argc, const char **argv)
 #endif
 #endif
 
+  // Alias
+  bool recursive;
+#if 1
+  flag::add (recursive, "R", "do something recursively");
+  flag::alias ("R", "recursive");
+#else
+  // Alternative without alias
+  flag::add (recursive, "R", "");
+  flag::add (recursive, "recursive", "do something recusively");
+#endif
+
   std::vector<const char *> args = flag::parse (argc, argv);
 
   std::cout << "l: " << (long_flag ? "yes" : "no") << std::endl;
@@ -134,6 +145,7 @@ main (const int argc, const char **argv)
   std::cout << "bar: " << str << std::endl;
   std::cout << "scale: " << scale << std::endl;
   std::cout << "x: '" << x.key << ':' << x.value << '\'' << std::endl;
+  std::cout << "recursive: " << (recursive ? "yes" : "no") << std::endl;
 
   if (!args.empty ())
     {

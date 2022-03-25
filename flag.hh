@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cctype>
 #include <iostream>
+#include <map>
 #if defined (_WIN32) && defined (FLAG_SHORTEN_WINDOWS_PROGRAM_PATH)
 #  include <filesystem>
 #endif
@@ -194,6 +195,7 @@ struct Option_Type<Option_Callable> : Option_Base
 };
 
 inline std::vector<std::unique_ptr<Option_Base>> options = {};
+inline std::map<std::string_view, std::string_view> aliases = {};
 inline Help_Function usage = nullptr;
 inline std::string_view error_description = "";
 inline bool help_show_types = true;
@@ -229,7 +231,17 @@ default_usage (const char *program)
   for (auto &option : options)
     {
       std::cout << "    -" << option->flag ();
-      if (option->takes_value ())
+      if (!aliases.empty ())
+        {
+          // TODO: support multiple aliases for the same flag
+          const auto flag = option->flag ();
+          const auto alias_it = std::find_if (aliases.begin (), aliases.end (),
+                                              [&flag](const auto &check) {
+                                                return check.second == flag;
+                                              });
+          if (alias_it != aliases.end ())
+            std::cout << ", -" << alias_it->first;
+        }
       if (help_show_types && option->takes_value ())
         {
           std::cout << ' ';
@@ -239,6 +251,31 @@ default_usage (const char *program)
       if (!option->help_text ().empty ())
         std::cout << "        " << option->help_text () << '\n';
     }
+}
+
+static Option_Base *
+find_option (std::string_view flag)
+{
+  auto do_find = [](std::string_view flag) {
+    return std::find_if (options.begin (), options.end (),
+                         [&flag] (const auto &test) {
+                           return test->operator== (flag);
+                         });
+  };
+  auto it = do_find (flag);
+  if (it == options.end ())
+    {
+      if (aliases.empty ())
+        return nullptr;
+      else
+        {
+          const auto alias_it = aliases.find (flag);
+          if (alias_it == aliases.end ()
+              || (it = do_find (alias_it->second)) == options.end ())
+            return nullptr;
+        }
+    }
+  return it->get ();
 }
 
 enum class Process_Result
@@ -254,13 +291,9 @@ static Process_Result
 process_flag (std::string_view flag, std::string_view &value,
               int &argind, int argc, const char *const *argv)
 {
-  const auto it = std::find_if (options.begin (), options.end (),
-                                [&flag] (const auto &test) {
-                                  return test->operator== (flag);
-                                });
-  if (it == options.end ())
+  Option_Base *option = find_option (flag);
+  if (option == nullptr)
     return Process_Result::Invalid_Option;
-  auto &option = *it;
   if (option->takes_value ())
     {
       if (value.empty ())
@@ -349,6 +382,12 @@ static inline void
 help_show_types (bool v)
 {
   detail::help_show_types = v;
+}
+
+static inline void
+alias (std::string_view flag, std::string_view alias)
+{
+  detail::aliases[alias] = flag;
 }
 
 static inline void
