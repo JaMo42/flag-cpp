@@ -49,6 +49,15 @@ If the flag uses a callback it should return whether the argument was valid or n
 
 To print additional information about the error `flag::set_description ("...")` is used to print the given string after the argument error message.
 
+Aliasing a flag:
+
+```cpp
+flag::add (recursive_flag, "R", "recursively do something");
+flag::alias ("R", "recursive");
+```
+
+This maps `-recursive` to trigger the `-R` flag.
+
 ### Help flag
 
 ```cpp
@@ -143,11 +152,15 @@ Usage: program ...
         colorize the output
     -f
         a boolean flag
+    -R, -recursive
+        recursively do something
 ```
 
 Where `n` and `color` would have been added as above and `f` is added using a `bool` reference.
 
 For flags using a non-boolean value reference the type is printed for the value.
+
+`flag::help_show_types (true/false)` enables/disables printing of the type.
 
 For callbacks or types for which the type name is specified as `nullptr` the flag name in uppercase is used.
 
