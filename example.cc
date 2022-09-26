@@ -107,6 +107,8 @@ main (const int argc, const char **argv)
   flag::add (x, "x", "x");
   // Empty help text
   flag::add (boolean, "no-help", "");
+  // No help text
+  flag::add (boolean, "no-help-2");
 #if 0
   // Empty flag
   flag::add (boolean, "", "Empty flag");

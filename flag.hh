@@ -347,7 +347,7 @@ complain (const char *program, Process_Result about, std::string_view flag,
 
 template <class T>
 static inline void
-add (T &value, std::string_view flag, std::string_view help_text)
+add (T &value, std::string_view flag, std::string_view help_text = "")
 {
   using namespace std::literals;
   static_assert (types::Value_Type<T>::is_supported, "Unsupported type");
@@ -358,7 +358,7 @@ add (T &value, std::string_view flag, std::string_view help_text)
 }
 
 static inline void
-add (Option_Callable func, std::string_view flag, std::string_view help_text)
+add (Option_Callable func, std::string_view flag, std::string_view help_text = "")
 {
   if (flag.empty ())
     throw std::invalid_argument ("Empty flag");
