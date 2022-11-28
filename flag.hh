@@ -317,6 +317,25 @@ process_flag (std::string_view flag, std::string_view &value,
 }
 
 static inline void
+look_for_similar (std::string_view dash, std::string_view flag)
+{
+  using namespace std::literals;
+  std::string_view best_match = ""sv;
+  for (auto &option : options)
+    {
+      const auto opt = option->flag ();
+      if (opt.starts_with (flag)
+          && (best_match.empty () || opt.size () < best_match.size ()))
+        best_match = opt;
+      else if (flag.starts_with (opt)
+               && (best_match.empty () || flag.size () > best_match.size ()))
+        best_match = opt;
+    }
+  if (not best_match.empty ())
+    std::cerr << ", did you mean " << dash << best_match << "?";
+}
+
+static inline void
 complain (const char *program, Process_Result about, std::string_view flag,
           std::string_view value, bool double_dash)
 {
@@ -329,6 +348,7 @@ complain (const char *program, Process_Result about, std::string_view flag,
       break; case Process_Result::Ok: // To suppress warnings
       break; case Process_Result::Invalid_Option:
         std::cerr << "unrecognized option ‘" << dash << flag << "’";
+        look_for_similar (dash, flag);
       break; case Process_Result::Missing_Value:
         std::cerr << "option ‘" << dash << flag <<  "’ requires an argument";
       break; case Process_Result::Unexpected_Value:
