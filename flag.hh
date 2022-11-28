@@ -316,20 +316,91 @@ process_flag (std::string_view flag, std::string_view &value,
   return Process_Result::Ok;
 }
 
+// https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance#Jaro_similarity
+static double
+jaro_similarity (std::string_view a, std::string_view b)
+{
+  // Note: This byte-wise processing does work for UTF-8 text, however
+  //       the text may need to be closer in appearance than with ascii
+  //       as characters using multiple bytes are treated the same as multiple
+  //       characters and therefore get a higher similarity penalty if they are
+  //       not equal.
+
+  // Trivial cases
+  if (a.empty () && b.empty ())
+    return 1.0;
+  else if (a.empty () || b.empty ())
+    return 0.0;
+  else if (a.size () == 1 && b.size () == 1)
+    return a[0] == b[0] ? 1.0 : 0.0;
+
+  // Distance a character can have from a position and still be considered matching.
+  const auto match_range = std::max (a.size (), b.size ()) / 2 - 1;
+  // Keeps tracl of characters in B we have already matched
+  auto used = std::vector (b.size (), false);
+  // Position of last character mached in B, used for order checking
+  auto b_pos = std::size_t {};
+
+  auto matches = 0.0;
+  auto transpositions = 0.0;
+
+  for (std::size_t i = 0; i < a.size (); ++i)
+    {
+      const auto c = a[i];
+      const auto lo = i > match_range ? i - match_range : 0;
+      const auto hi = std::min (i + match_range, b.size () - 1);
+      for (std::size_t j = lo; j <= hi; ++j)
+        {
+          const auto d = b[j];
+          if (c == d && !used[j])
+            {
+              used[j] = true;
+              ++matches;
+              if (j < b_pos)
+                ++transpositions;
+              b_pos = j;
+              break;
+            }
+        }
+    }
+
+  if (matches == 0.0)
+    return 0.0;
+  else
+    return 0.333 * ((matches / a.size ())
+                    + (matches / b.size ())
+                    + ((matches - transpositions) / matches));
+}
+
+// https://en.wikipedia.org/wiki/Jaro%E2%80%93Winkler_distance#Jaro%E2%80%93Winkler_similarity
+static inline double
+jaro_winkler_similarity (std::string_view a, std::string_view b)
+{
+  constexpr double SCALING_FACTOR = 0.1;
+  const auto sim_j = jaro_similarity (a, b);
+  const auto l = std::distance (
+    a.begin (),
+    std::mismatch (a.begin (), a.end (), b.begin (), b.end ()).first
+  );
+  const auto sim_w = sim_j - l * SCALING_FACTOR * (1.0 - sim_j);
+  return sim_w <= 1.0 ? sim_w : 1.0;
+}
+
 static inline void
 look_for_similar (std::string_view dash, std::string_view flag)
 {
-  using namespace std::literals;
-  std::string_view best_match = ""sv;
-  for (auto &option : options)
+  constexpr double THRESHHOLD = 0.8;
+  std::string_view best_match = {};
+  double most_similar = 0.0;
+  for (const auto &option : options)
     {
       const auto opt = option->flag ();
-      if (opt.starts_with (flag)
-          && (best_match.empty () || opt.size () < best_match.size ()))
-        best_match = opt;
-      else if (flag.starts_with (opt)
-               && (best_match.empty () || flag.size () > best_match.size ()))
-        best_match = opt;
+      const auto sim = jaro_winkler_similarity (opt, flag);
+      if (sim > THRESHHOLD && sim > most_similar)
+        {
+          best_match = opt;
+          most_similar = sim;
+        }
     }
   if (not best_match.empty ())
     std::cerr << ", did you mean " << dash << best_match << "?";
