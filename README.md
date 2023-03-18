@@ -164,6 +164,70 @@ For flags using a non-boolean value reference the type is printed for the value.
 
 For callbacks or types for which the type name is specified as `nullptr` the flag name in uppercase is used.
 
+### Aliases
+
+Flags can be aliased:
+
+```cpp
+bool recursive = false;
+flag::add(recursive, "recursive", "...");
+flag::alias("recursive", "R");
+```
+
+Now the recursive flag can be set with both `-recursive` and `-R`.
+
+### Grouping
+
+`getopt`-like grouping of single-character flags can be enabled with the `allow_grouping` function:
+
+```cpp
+bool a = false, b = false, c = false;
+int d = 0;
+flag::add(a, "a", "...");
+flag::add(b, "b", "...");
+flag::add(c, "c", "...");
+flag::add(d, "d", "...");
+flag::allow_grouping(true);
+```
+
+Examples:
+
+```
+$ program -abc
+> a = true
+> b = true
+> c = true
+
+$ program -ad 123
+> a = true
+> d = 123
+
+$ program -acd
+! program: option ‘-d’ requires an argument
+! program: unrecognized option ‘-acd’
+
+$ program
+! program: unrecognized option ‘-adc’
+```
+
+A option is considered as a group if these conditions are met:
+
+- It's not a valid flag name by itself, since we do not differentiate between short and long options
+
+- All characters in the flag are a valid flag
+
+- Only the last flag in a group may take a value
+
+A few things of note:
+
+- The characters in the context are Unicode characters
+
+- The single-character flags can be either the original name or an alias
+
+- If the last flag takes a value and setting it fails, both the error message for the invalid value and the full flag not being recognized are printed
+
+- If a flag in the group takes a value but is not at the end the entire flag is not considered as a group and only the error message to the full flag not being recognized is printed
+
 ### Argument errors
 
 General format:
@@ -188,4 +252,4 @@ The program will terminate after printing the error message.
 
 ### Misc
 
-Powershell on Windows will always give the full path of the executable as `argv[0]`, define FLAG_SHORTEN_WINDOWS_PROGRAM_PATH` to shorten this to just the filename in error messages and the usage function.
+PowerShell on Windows will always give the full path of the executable as `argv[0]`, define FLAG_SHORTEN_WINDOWS_PROGRAM_PATH` to shorten this to just the filename in error messages and the usage function.

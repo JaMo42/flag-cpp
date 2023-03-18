@@ -53,6 +53,11 @@ struct Value_Type<T, std::enable_if_t<detail::is_signed_int<T>>>
 
   static void convert_arg (const char *arg, T *value)
   {
+    // FIXME (same for unsigned): this implementation will
+    // accept any non-number argument or arguments starting
+    // with a number and then containing garbage, in which
+    // case the value will just be set to 0 or that starting
+    // number and no error is reported.
     const long long my_value = std::strtoll (arg, nullptr, 0);
     if (my_value > std::numeric_limits<T>::max ())
       throw std::range_error ("value too large");
@@ -199,12 +204,13 @@ inline std::map<std::string_view, std::string_view> aliases = {};
 inline Help_Function usage = nullptr;
 inline std::string_view error_description = "";
 inline bool help_show_types = true;
+inline bool group_singles = false;
 
 static inline void
 print_type_name (Option_Base *option)
 {
   const char *value_name = option->value_name ();
-  std::cout << "\x1b[2m";  // Dim
+  std::cout << "\x1b[2m";
   if (value_name)
     std::cout << value_name;
   else
@@ -434,6 +440,77 @@ complain (const char *program, Process_Result about, std::string_view flag,
     std::cerr << error_description << std::endl;
 }
 
+/// Calls the given function with each codepoint of the given string in utf-8.
+/// As soon the function does not return `Process_Result::Ok` that return value
+/// is returned, if the function is ok for each codepoint `Process_Result::Ok`
+/// is returned.
+///
+/// The signature of the given function must be:
+/// ```
+/// Process_Result f(std::string_view codepoint, bool is_last);
+/// ```
+template<class F>
+requires std::is_invocable_r_v<Process_Result, F, std::string_view, bool>
+static Process_Result
+iter_codepoints(std::string_view s, F f)
+{
+  std::size_t begin = 0;
+  for (std::size_t i = 1; i < s.size(); ++i)
+    {
+      if ((s[i] & 0xC0) != 0x80)
+        {
+          if (const auto r = f(s.substr(begin, i - begin), false);
+              r != Process_Result::Ok)
+            return r;
+          begin = i;
+        }
+    }
+  return f(s.substr(begin), true);
+}
+
+/// Checks if the given flag is valid inside a group.
+/// The length of the flag is not checked.
+static Process_Result
+is_valid_single(std::string_view flag, bool is_last)
+{
+  const auto opt = find_option(flag);
+  // Only the last option in a group may take a value
+  const auto is_ok = opt != nullptr && (!opt->takes_value() || is_last);
+  // The false value doesn't matter here as long as it's not `Ok`
+  return is_ok ? Process_Result::Ok : Process_Result::Invalid_Option;
+}
+
+/// Checks if the given full flag is a valid group of single-character flags.
+static inline bool
+is_valid_group(std::string_view flag)
+{
+  return iter_codepoints(flag, is_valid_single) == Process_Result::Ok;
+}
+
+/// Processes a single-character flag group.
+/// Returns the last flag and the result of settings its value.
+static std::pair<std::string_view, Process_Result>
+process_group(std::string_view flags, std::string_view value, int &argind,
+              int argc, const char *const *argv)
+{
+  using namespace std::literals;
+  int dummy_argind = 0;
+  std::string_view dummy_value = ""sv;
+  std::string_view last_flag = ""sv;
+  const auto result = iter_codepoints(flags, [&](std::string_view flag, bool is_last) {
+    if (is_last)
+      {
+        last_flag = flag;
+        return process_flag(flag, value, argind, argc, argv);
+      }
+    else
+      // We already checked these don't take a value so the dummy values and
+      // `nullptr` are safe here.
+      return process_flag(flag, dummy_value, dummy_argind, 0, nullptr);
+  });
+  return std::make_pair(last_flag, result);
+}
+
 } // namespace detail
 
 template <class T>
@@ -457,28 +534,44 @@ add (Option_Callable func, std::string_view flag, std::string_view help_text = "
   detail::options.emplace_back (opt);
 }
 
+/// Sets a custom usage function.
 static inline void
 add_help (Help_Function usage)
 {
   detail::usage = usage;
 }
 
+/// Sets the default usage function.
 static inline void
 add_help ()
 {
   add_help (detail::default_usage);
 }
 
+/// Specify whether value type names should be printed in the default help
+/// function.
+/// By default this is enabled.
 static inline void
-help_show_types (bool v)
+help_show_types (bool show)
 {
-  detail::help_show_types = v;
+  detail::help_show_types = show;
 }
 
+/// Defines an alias.
 static inline void
 alias (std::string_view flag, std::string_view alias)
 {
   detail::aliases[alias] = flag;
+}
+
+/// Specify whether grouping multiple single-character boolean options into
+/// one flag should be allowed.
+/// For example `-abc` could match the flags `a`, `b`, and `c`.
+/// By default this is not allowed.
+static inline void
+allow_grouping(bool allow = true)
+{
+  detail::group_singles = allow;
 }
 
 static inline void
@@ -520,9 +613,21 @@ parse (int argc, const char *const *argv, Collect_Arg collect_arg)
           // If this is empty now it will recieve the value of the following
           // argv-element in `detail::process_flag`.
           std::string_view value = (eq_pos == std::string_view::npos
-                                    ? ""
+                                    ? ""sv
                                     : arg.substr (eq_pos + 1));
           const auto result = process_flag (flag, value, i, argc, argv);
+          if (result != Process_Result::Ok
+              && group_singles
+              && is_valid_group(flag))
+            {
+              const auto [f, r] = process_group(flag, value, i, argc, argv);
+              if (r == Process_Result::Ok)
+                continue;
+              // Last flag in the group had an error with its value,
+              // in this case we just print the error messages for both
+              // this flag and the original flag.
+              complain (argv0, r, f, value, (argv[i][1] == '-'));
+            }
           if (result != Process_Result::Ok)
             {
               complain (argv0, result, flag, value, (argv[i][1] == '-'));
@@ -561,7 +666,7 @@ parse (int argc, const char *const *argv)
   return args;
 }
 
-void
+static inline void
 set_description (std::string_view description)
 {
   detail::error_description = description;

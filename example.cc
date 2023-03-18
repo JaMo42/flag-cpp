@@ -130,7 +130,7 @@ main (const int argc, const char **argv)
 #endif
 
   // Alias
-  bool recursive;
+  bool recursive = false;
 #if 1
   flag::add (recursive, "R", "do something recursively");
   flag::alias ("R", "recursive");
@@ -140,6 +140,14 @@ main (const int argc, const char **argv)
   flag::add (recursive, "recursive", "do something recusively");
 #endif
 
+  bool a = false, b = false, c = true;
+  int d = 0;
+  flag::add(a, "a", "");
+  flag::add(b, "b", "");
+  flag::add(c, "c", "");
+  flag::add(d, "d", "");
+  flag::allow_grouping(true);
+
   std::vector<const char *> args = flag::parse (argc, argv);
 
   std::cout << "l: " << (long_flag ? "yes" : "no") << std::endl;
@@ -148,6 +156,10 @@ main (const int argc, const char **argv)
   std::cout << "scale: " << scale << std::endl;
   std::cout << "x: '" << x.key << ':' << x.value << '\'' << std::endl;
   std::cout << "recursive: " << (recursive ? "yes" : "no") << std::endl;
+  std::cout << "a: " << (a ? "yes" : "no") << std::endl;
+  std::cout << "b: " << (b ? "yes" : "no") << std::endl;
+  std::cout << "c: " << (c ? "yes" : "no") << std::endl;
+  std::cout << "d: " << d << std::endl;
 
   if (!args.empty ())
     {
